@@ -1,6 +1,5 @@
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -48,7 +47,6 @@ function App(): JSX.Element {
         <TooltipProvider>
           <TenantProvider>
             <Toaster />
-            <Sonner />
             <BrowserRouter>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
@@ -60,8 +58,8 @@ function App(): JSX.Element {
                     <Route path="/customers" element={<CustomersPage />} />
                     <Route path="/bookings" element={<BookingsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<NotFound />} />
                   </Route>
-                  <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
             </BrowserRouter>

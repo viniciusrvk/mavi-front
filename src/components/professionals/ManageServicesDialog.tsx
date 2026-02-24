@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, Edit, Check, X } from "lucide-react";
 import { useServices } from "@/hooks/api";
+import { formatCurrency } from "@/lib/formatters";
 import {
   useProfessionalServices,
   useAssignService,
@@ -138,7 +139,7 @@ export function ManageServicesDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gerenciar Serviços — {professionalName}</DialogTitle>
             <DialogDescription>
@@ -154,7 +155,66 @@ export function ManageServicesDialog({
               Nenhum serviço associado. Adicione abaixo.
             </p>
           ) : (
-            <Table>
+            <>
+              {/* Mobile: Cards */}
+              <div className="space-y-3 md:hidden">
+                {professionalServices.map((ps) => (
+                  <div key={ps.serviceId} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium truncate">{ps.serviceName}</span>
+                        {(ps.hasCustomPrice || ps.hasCustomDuration) && (
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            Personalizado
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {editingServiceId === ps.serviceId ? (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleSaveEdit(ps.serviceId)} disabled={updateAssignment.isPending}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setEditingServiceId(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleStartEdit(ps)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setDeleteServiceId(ps.serviceId)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {editingServiceId === ps.serviceId ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Preço</Label>
+                          <Input type="number" placeholder={String(ps.basePrice)} value={editPrice} onChange={(e) => setEditPrice(e.target.value)} step="0.01" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Duração (min)</Label>
+                          <Input type="number" placeholder={String(ps.baseDurationMinutes)} value={editDuration} onChange={(e) => setEditDuration(e.target.value)} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>{formatCurrency(ps.effectivePrice)}</span>
+                        <span>{ps.effectiveDurationMinutes}min</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: Table */}
+              <div className="hidden md:block">
+                <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Serviço</TableHead>
@@ -263,13 +323,15 @@ export function ManageServicesDialog({
                 ))}
               </TableBody>
             </Table>
+              </div>
+            </>
           )}
 
           {/* Add service section */}
           {availableServices.length > 0 && (
             <div className="border-t pt-4 space-y-3">
               <Label className="text-sm font-medium">Adicionar Serviço</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <Select
                   value={selectedServiceId}
                   onValueChange={setSelectedServiceId}

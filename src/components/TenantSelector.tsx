@@ -104,7 +104,7 @@ export function TenantSelector() {
           ))
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate("/tenants/new")}>
+        <DropdownMenuItem onClick={() => navigate("/tenants")}>
           <Plus className="mr-2 h-4 w-4" />
           Novo Estabelecimento
         </DropdownMenuItem>

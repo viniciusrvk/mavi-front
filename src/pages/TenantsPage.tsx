@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Building2, Clock, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,10 +20,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useTenant } from "@/contexts/TenantContext";
 import { useTenants, useCreateTenant, useUpdateTenant, useDeleteTenant } from "@/hooks/api/useTenants";
 import { PageHeader, SearchInput, EmptyState, ErrorState, LoadingSpinner, ConfirmDialog } from "@/components/common";
+import { tenantCreateSchema, type TenantCreateFormData } from "@/lib/schemas";
 import type { Tenant } from "@/types/api";
 
 export default function TenantsPage(): JSX.Element {
@@ -30,12 +33,12 @@ export default function TenantsPage(): JSX.Element {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [deleteTenantId, setDeleteTenantId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    openTime: "08:00",
-    closeTime: "18:00",
-    taxId: "",
+
+  const defaultValues: TenantCreateFormData = { name: "", slug: "", openTime: "08:00", closeTime: "18:00", taxId: "" };
+
+  const form = useForm<TenantCreateFormData>({
+    resolver: zodResolver(tenantCreateSchema),
+    defaultValues,
   });
 
   const { data: tenants, isLoading, isError, error } = useTenants();
@@ -47,13 +50,13 @@ export default function TenantsPage(): JSX.Element {
 
   const openCreateDialog = (): void => {
     setEditingTenant(null);
-    setFormData({ name: "", slug: "", openTime: "08:00", closeTime: "18:00", taxId: "" });
+    form.reset(defaultValues);
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (tenant: Tenant): void => {
     setEditingTenant(tenant);
-    setFormData({ 
+    form.reset({ 
       name: tenant.name, 
       slug: tenant.slug, 
       openTime: tenant.openTime, 
@@ -66,7 +69,7 @@ export default function TenantsPage(): JSX.Element {
   const closeDialog = (): void => {
     setIsDialogOpen(false);
     setEditingTenant(null);
-    setFormData({ name: "", slug: "", openTime: "08:00", closeTime: "18:00", taxId: "" });
+    form.reset(defaultValues);
   };
 
   const filteredTenants = useMemo(() => {
@@ -78,16 +81,16 @@ export default function TenantsPage(): JSX.Element {
     );
   }, [tenants, searchQuery]);
 
-  const handleSubmit = (): void => {
+  const handleSubmit = (data: TenantCreateFormData): void => {
     if (isEditing && editingTenant) {
       updateTenant.mutate(
         { 
           id: editingTenant.id, 
           data: { 
-            name: formData.name, 
-            openTime: formData.openTime, 
-            closeTime: formData.closeTime, 
-            taxId: formData.taxId || undefined 
+            name: data.name, 
+            openTime: data.openTime, 
+            closeTime: data.closeTime, 
+            taxId: data.taxId || undefined 
           } 
         },
         { onSuccess: closeDialog }
@@ -95,11 +98,11 @@ export default function TenantsPage(): JSX.Element {
     } else {
       createTenant.mutate(
         {
-          name: formData.name,
-          slug: formData.slug,
-          openTime: formData.openTime,
-          closeTime: formData.closeTime,
-          taxId: formData.taxId || undefined,
+          name: data.name,
+          slug: data.slug,
+          openTime: data.openTime,
+          closeTime: data.closeTime,
+          taxId: data.taxId || undefined,
         },
         { onSuccess: closeDialog }
       );
@@ -159,75 +162,100 @@ export default function TenantsPage(): JSX.Element {
               {isEditing ? "Atualize os dados do estabelecimento." : "Crie um novo estabelecimento para gerenciar agendamentos."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                placeholder="Salão da Maria"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Salão da Maria" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="slug">Slug (URL) {isEditing && <span className="text-muted-foreground text-xs">(não editável)</span>}</Label>
-              <Input
-                id="slug"
-                placeholder="salao-da-maria"
-                value={formData.slug}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
-                  })
-                }
-                disabled={isEditing}
-                className={isEditing ? "bg-muted" : ""}
+              <FormField
+                control={form.control}
+                name="slug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Slug (URL) {isEditing && <span className="text-muted-foreground text-xs">(não editável)</span>}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="salao-da-maria"
+                        disabled={isEditing}
+                        className={isEditing ? "bg-muted" : ""}
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="taxId">CNPJ (opcional)</Label>
-              <Input
-                id="taxId"
-                placeholder="00.000.000/0001-00"
-                value={formData.taxId}
-                onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+              <FormField
+                control={form.control}
+                name="taxId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CNPJ <span className="text-muted-foreground text-xs">(opcional)</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="00.000.000/0001-00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="openTime">Abertura</Label>
-                <Input
-                  id="openTime"
-                  type="time"
-                  value={formData.openTime}
-                  onChange={(e) => setFormData({ ...formData, openTime: e.target.value })}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="openTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Abertura</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="closeTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fechamento</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="closeTime">Fechamento</Label>
-                <Input
-                  id="closeTime"
-                  type="time"
-                  value={formData.closeTime}
-                  onChange={(e) => setFormData({ ...formData, closeTime: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!formData.name || (!isEditing && !formData.slug) || createTenant.isPending || updateTenant.isPending}
-            >
-              {(createTenant.isPending || updateTenant.isPending)
-                ? (isEditing ? "Salvando..." : "Criando...")
-                : (isEditing ? "Salvar" : "Criar")}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createTenant.isPending || updateTenant.isPending}
+                >
+                  {(createTenant.isPending || updateTenant.isPending)
+                    ? (isEditing ? "Salvando..." : "Criando...")
+                    : (isEditing ? "Salvar" : "Criar")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

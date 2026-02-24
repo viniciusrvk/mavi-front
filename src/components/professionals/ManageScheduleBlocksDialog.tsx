@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Trash2, Plus } from "lucide-react";
 import {
   useScheduleBlocks,
@@ -24,6 +26,7 @@ import {
   useDeleteScheduleBlock,
 } from "@/hooks/api/useScheduleBlocks";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { scheduleBlockSchema, type ScheduleBlockFormData } from "@/lib/schemas";
 
 interface ManageScheduleBlocksDialogProps {
   professionalId: string | null;
@@ -42,27 +45,27 @@ export function ManageScheduleBlocksDialog({
   const createBlock = useCreateScheduleBlock();
   const deleteBlock = useDeleteScheduleBlock();
 
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [reason, setReason] = useState("");
   const [deleteBlockId, setDeleteBlockId] = useState<string | null>(null);
 
-  const handleCreate = () => {
-    if (!professionalId || !startTime || !endTime) return;
+  const form = useForm<ScheduleBlockFormData>({
+    resolver: zodResolver(scheduleBlockSchema),
+    defaultValues: { startTime: "", endTime: "", reason: "" },
+  });
+
+  const handleCreate = (data: ScheduleBlockFormData) => {
+    if (!professionalId) return;
     createBlock.mutate(
       {
         professionalId,
         data: {
-          startTime: startTime.length === 16 ? `${startTime}:00` : startTime,
-          endTime: endTime.length === 16 ? `${endTime}:00` : endTime,
-          reason: reason || undefined,
+          startTime: data.startTime.length === 16 ? `${data.startTime}:00` : data.startTime,
+          endTime: data.endTime.length === 16 ? `${data.endTime}:00` : data.endTime,
+          reason: data.reason || undefined,
         },
       },
       {
         onSuccess: () => {
-          setStartTime("");
-          setEndTime("");
-          setReason("");
+          form.reset({ startTime: "", endTime: "", reason: "" });
         },
       }
     );
@@ -95,7 +98,7 @@ export function ManageScheduleBlocksDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Bloqueios de Agenda — {professionalName}
@@ -114,77 +117,132 @@ export function ManageScheduleBlocksDialog({
               Nenhum bloqueio cadastrado.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Início</TableHead>
-                  <TableHead>Fim</TableHead>
-                  <TableHead>Motivo</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Mobile: Cards */}
+              <div className="space-y-3 md:hidden">
                 {sortedBlocks.map((block) => (
-                  <TableRow key={block.id}>
-                    <TableCell className="text-sm">
-                      {formatDateTime(block.startTime)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {formatDateTime(block.endTime)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {block.reason || "—"}
-                    </TableCell>
-                    <TableCell>
+                  <div key={block.id} className="rounded-lg border p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 min-w-0">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Início: </span>
+                          <span className="font-medium">{formatDateTime(block.startTime)}</span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Fim: </span>
+                          <span className="font-medium">{formatDateTime(block.endTime)}</span>
+                        </div>
+                        {block.reason && (
+                          <p className="text-sm text-muted-foreground truncate">{block.reason}</p>
+                        )}
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-9 w-9 shrink-0"
                         onClick={() => setDeleteBlockId(block.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Desktop: Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Início</TableHead>
+                      <TableHead>Fim</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedBlocks.map((block) => (
+                      <TableRow key={block.id}>
+                        <TableCell className="text-sm">
+                          {formatDateTime(block.startTime)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {formatDateTime(block.endTime)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {block.reason || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteBlockId(block.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
 
           {/* Create block form */}
-          <div className="border-t pt-4 space-y-3">
-            <Label className="text-sm font-medium">Novo Bloqueio</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Início</Label>
-                <Input
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleCreate)} className="border-t pt-4 space-y-3">
+              <FormLabel className="text-sm font-medium">Novo Bloqueio</FormLabel>
+              <div className="grid grid-cols-2 gap-2">
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Início</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Fim</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Fim</Label>
-                <Input
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </div>
-            </div>
-            <Input
-              placeholder="Motivo (opcional)"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-            <Button
-              onClick={handleCreate}
-              disabled={!startTime || !endTime || createBlock.isPending}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Criar Bloqueio
-            </Button>
-          </div>
+              <FormField
+                control={form.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input placeholder="Motivo (opcional)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                disabled={createBlock.isPending}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Criar Bloqueio
+              </Button>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 

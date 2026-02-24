@@ -118,7 +118,7 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         {!collapsed && (
           <p className="text-xs text-sidebar-foreground/50 text-center">
-            © 2025 MAVI Services
+            © 2026 MAVI Services
           </p>
         )}
       </SidebarFooter>

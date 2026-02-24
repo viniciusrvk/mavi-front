@@ -28,9 +28,7 @@ import type {
   GetAvailabilitySlotsParams,
 } from '@/types/api';
 
-const API_BASE_URL = import.meta.env.PROD 
-  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080')
-  : ''; // Em desenvolvimento, usa proxy do Vite (caminho relativo)
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''; // Vazio = usa caminho relativo (proxy do Vite em dev, Nginx em prod)
 const API_KEY = import.meta.env.VITE_API_KEY || 'mavi-dev-key-123';
 
 class ApiClient {

@@ -51,7 +51,9 @@ import { useServices } from "@/hooks/api/useServices";
 import { useAvailableSlots } from "@/hooks/api/useAvailableSlots";
 import { useProfessionalServices, useServiceProfessionals } from "@/hooks/api/useProfessionalServices";
 import { RescheduleDialog } from "@/components/bookings/RescheduleDialog";
-import { PageHeader, LoadingSpinner, EmptyState } from "@/components/common";
+import { PageHeader, LoadingSpinner, EmptyState, ErrorState } from "@/components/common";
+import { getStatusConfig } from "@/lib/booking-utils";
+import { formatCurrency } from "@/lib/formatters";
 import { Input } from "@/components/ui/input";
 import type { BookingStatus, Booking } from "@/types/api";
 
@@ -63,19 +65,6 @@ const statuses = [
   { value: "COMPLETED", label: "Concluídos" },
   { value: "CANCELLED", label: "Cancelados" },
 ];
-
-function getStatusConfig(status: BookingStatus): { variant: "default" | "secondary" | "destructive" | "outline"; label: string; color: string } {
-  const configs: Record<BookingStatus, { variant: "default" | "secondary" | "destructive" | "outline"; label: string; color: string }> = {
-    REQUESTED: { variant: "outline", label: "Pendente", color: "bg-amber-500" },
-    CONFIRMED: { variant: "default", label: "Confirmado", color: "bg-primary" },
-    IN_PROGRESS: { variant: "secondary", label: "Em Andamento", color: "bg-chart-3" },
-    COMPLETED: { variant: "default", label: "Concluído", color: "bg-green-500" },
-    CANCELLED: { variant: "destructive", label: "Cancelado", color: "bg-destructive" },
-    REJECTED: { variant: "destructive", label: "Rejeitado", color: "bg-destructive" },
-    NO_SHOW: { variant: "destructive", label: "Não Compareceu", color: "bg-muted" },
-  };
-  return configs[status];
-}
 
 export default function BookingsPage(): JSX.Element {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -206,13 +195,11 @@ export default function BookingsPage(): JSX.Element {
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <CalendarIcon className="h-12 w-12 text-destructive" />
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Erro ao carregar agendamentos</h2>
-          <p className="text-muted-foreground mt-1">{error?.message}</p>
-        </div>
-      </div>
+      <ErrorState
+        title="Erro ao carregar agendamentos"
+        description={error?.message || "Ocorreu um erro inesperado."}
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
@@ -289,7 +276,7 @@ export default function BookingsPage(): JSX.Element {
                               />
                               <span className="flex-1 text-sm">{service.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                R$ {service.price.toFixed(2)}
+                                {formatCurrency(service.price)}
                               </span>
                             </label>
                           );
@@ -330,13 +317,6 @@ export default function BookingsPage(): JSX.Element {
                     value={newBooking.professionalId}
                     onValueChange={(value) => {
                       const updated = { ...newBooking, professionalId: value, time: "" };
-                      // Clear service if not compatible
-                      if (updated.serviceId && professionalServicesList) {
-                        const validIds = new Set(professionalServicesList.map(ps => ps.serviceId));
-                        if (!validIds.has(updated.serviceId)) {
-                          updated.serviceId = "";
-                        }
-                      }
                       setNewBooking(updated);
                     }}
                   >
@@ -354,7 +334,7 @@ export default function BookingsPage(): JSX.Element {
                 </div>
                 {effectiveInfo && (
                   <div className="rounded-md bg-muted p-3 text-sm">
-                    <p><strong>Preço efetivo:</strong> R$ {effectiveInfo.price.toFixed(2)}</p>
+                    <p><strong>Preço efetivo:</strong> {formatCurrency(effectiveInfo.price)}</p>
                     <p><strong>Duração:</strong> {effectiveInfo.duration} min</p>
                   </div>
                 )}
@@ -430,47 +410,49 @@ export default function BookingsPage(): JSX.Element {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Filtros:</span>
             </div>
-            <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Profissional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {professionals?.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                {statuses.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-3 md:flex md:flex-row">
+              <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {professionals?.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Week View */}
-      <div className="flex items-center justify-between">
-        <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" aria-label="Semana anterior" onClick={() => setSelectedDate(addDays(selectedDate, -7))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto flex-1 snap-x snap-mandatory pb-1 scrollbar-hide">
           {weekDays.map((day) => (
             <Button
               key={day.toISOString()}
               variant={isSameDay(day, selectedDate) ? "default" : "outline"}
-              className="flex flex-col h-auto py-2 px-3"
+              className="flex flex-col h-auto py-2 px-3 min-w-[52px] shrink-0 snap-center"
               onClick={() => setSelectedDate(day)}
             >
               <span className="text-xs">{format(day, "EEE", { locale: ptBR })}</span>
@@ -478,7 +460,7 @@ export default function BookingsPage(): JSX.Element {
             </Button>
           ))}
         </div>
-        <Button variant="outline" size="icon" onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
+        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" aria-label="Próxima semana" onClick={() => setSelectedDate(addDays(selectedDate, 7))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -508,34 +490,37 @@ export default function BookingsPage(): JSX.Element {
                 return (
                   <div 
                     key={booking.id}
-                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer"
+                    className="flex flex-col gap-3 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow cursor-pointer active:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedBooking(booking)}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedBooking(booking)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-1 h-12 rounded-full ${statusConfig.color}`} />
-                      <div>
+                    <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                      <div className={`w-1 h-12 rounded-full shrink-0 ${statusConfig.color}`} />
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-primary" />
+                          <Clock className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-semibold">
                             {format(parseISO(booking.startTime), "HH:mm")} - {booking.endTime ? format(parseISO(booking.endTime), "HH:mm") : "--:--"}
                           </span>
                         </div>
-                        <p className="font-medium mt-1">{customer?.name || "Cliente"}</p>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                        <p className="font-medium mt-1 truncate">{customer?.name || "Cliente"}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-1">
                           <span className="flex items-center gap-1">
-                            <Scissors className="h-3 w-3" />
-                            {serviceNames || "Serviço"}
+                            <Scissors className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{serviceNames || "Serviço"}</span>
                           </span>
                           <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {professional?.name || "Profissional"}
+                            <User className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{professional?.name || "Profissional"}</span>
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between gap-3 pl-4 sm:pl-0 sm:justify-end">
                       <span className="font-semibold text-primary">
-                        R$ {booking.price != null ? Number(booking.price).toFixed(2) : "0.00"}
+                        {formatCurrency(booking.price != null ? Number(booking.price) : 0)}
                       </span>
                       <Badge variant={statusConfig.variant}>
                         {statusConfig.label}
@@ -589,7 +574,7 @@ export default function BookingsPage(): JSX.Element {
                         <div key={idx} className="flex items-center justify-between text-sm">
                           <span className="font-medium">{svc.serviceName}</span>
                           <span className="text-muted-foreground">
-                            {svc.durationMinutes}min — R$ {Number(svc.price).toFixed(2)}
+                            {svc.durationMinutes}min — {formatCurrency(Number(svc.price))}
                           </span>
                         </div>
                       ))}
@@ -603,11 +588,11 @@ export default function BookingsPage(): JSX.Element {
                       </Badge>
                     </div>
                     <p className="text-xl font-bold text-primary">
-                      R$ {selectedBooking.price != null ? Number(selectedBooking.price).toFixed(2) : "0.00"}
+                      {formatCurrency(selectedBooking.price != null ? Number(selectedBooking.price) : 0)}
                     </p>
                   </div>
                 </div>
-                <DialogFooter className="flex-col gap-2 sm:flex-row">
+                <div className="grid grid-cols-2 gap-2 pt-4 sm:flex sm:justify-end">
                   {selectedBooking.status === "REQUESTED" && (
                     <>
                       <Button 
@@ -674,6 +659,7 @@ export default function BookingsPage(): JSX.Element {
                   )}
                   {selectedBooking.status === "IN_PROGRESS" && (
                     <Button 
+                      className="col-span-2"
                       onClick={() => handleStatusChange(selectedBooking.id, "COMPLETED")}
                       disabled={updateBookingStatus.isPending}
                     >
@@ -681,7 +667,7 @@ export default function BookingsPage(): JSX.Element {
                       Concluir
                     </Button>
                   )}
-                </DialogFooter>
+                </div>
 
                 {/* Reason dialog for cancel/reject */}
                 <Dialog open={reasonDialogAction !== null} onOpenChange={(open) => { if (!open) setReasonDialogAction(null); }}>

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +7,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,12 +16,16 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Trash2, Plus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useAvailabilities,
   useCreateAvailability,
   useDeleteAvailability,
 } from "@/hooks/api/useAvailabilities";
+import { availabilitySchema, type AvailabilityFormData } from "@/lib/schemas";
 import type { DayOfWeek } from "@/types/api";
 
 interface ManageAvailabilityDialogProps {
@@ -64,9 +66,10 @@ export function ManageAvailabilityDialog({
   const createAvailability = useCreateAvailability();
   const deleteAvailability = useDeleteAvailability();
 
-  const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek | "">("");
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("18:00");
+  const form = useForm<AvailabilityFormData>({
+    resolver: zodResolver(availabilitySchema),
+    defaultValues: { dayOfWeek: "", startTime: "08:00", endTime: "18:00" },
+  });
 
   // Group availabilities by day
   const groupedByDay = DAYS_OF_WEEK.map((day) => ({
@@ -76,18 +79,16 @@ export function ManageAvailabilityDialog({
       .sort((a, b) => a.startTime.localeCompare(b.startTime)),
   }));
 
-  const handleCreate = () => {
-    if (!professionalId || !dayOfWeek) return;
+  const handleCreate = (data: AvailabilityFormData) => {
+    if (!professionalId) return;
     createAvailability.mutate(
       {
         professionalId,
-        data: { dayOfWeek, startTime, endTime },
+        data: { dayOfWeek: data.dayOfWeek as DayOfWeek, startTime: data.startTime, endTime: data.endTime },
       },
       {
         onSuccess: () => {
-          setDayOfWeek("");
-          setStartTime("08:00");
-          setEndTime("18:00");
+          form.reset({ dayOfWeek: "", startTime: "08:00", endTime: "18:00" });
         },
       }
     );
@@ -100,7 +101,7 @@ export function ManageAvailabilityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Disponibilidade — {professionalName}</DialogTitle>
           <DialogDescription>
@@ -116,8 +117,8 @@ export function ManageAvailabilityDialog({
           <div className="space-y-3">
             {groupedByDay.map((day) => (
               <div key={day.value}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium w-20">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 mb-1">
+                  <span className="text-sm font-medium sm:w-20">
                     {DAY_LABELS[day.value]}
                   </span>
                   {day.availabilities.length === 0 ? (
@@ -154,44 +155,68 @@ export function ManageAvailabilityDialog({
         <Separator />
 
         {/* Add availability form */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Adicionar Horário</Label>
-          <div className="grid grid-cols-3 gap-2">
-            <Select
-              value={dayOfWeek}
-              onValueChange={(v) => setDayOfWeek(v as DayOfWeek)}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-3">
+            <FormLabel className="text-sm font-medium">Adicionar Horário</FormLabel>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="dayOfWeek"
+                render={({ field }) => (
+                  <FormItem>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Dia..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {DAYS_OF_WEEK.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="endTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input type="time" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={createAvailability.isPending}
+              size="sm"
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Dia..." />
-              </SelectTrigger>
-              <SelectContent>
-                {DAYS_OF_WEEK.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>
-                    {d.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-            <Input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
-          <Button
-            onClick={handleCreate}
-            disabled={!dayOfWeek || createAvailability.isPending}
-            size="sm"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Adicionar
-          </Button>
-        </div>
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

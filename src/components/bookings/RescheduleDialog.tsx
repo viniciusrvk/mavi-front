@@ -118,7 +118,7 @@ export function RescheduleDialog({
                   Nenhum horário disponível nesta data.
                 </p>
               ) : (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {availableSlots.map((slot) => (
                     <Button
                       key={slot.time}
@@ -148,17 +148,18 @@ export function RescheduleDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
             Cancelar
           </Button>
           <Button
+            className="w-full sm:w-auto"
             onClick={handleReschedule}
             disabled={
               !selectedDate || !selectedTime || reschedule.isPending
             }
           >
-            {reschedule.isPending ? "Reagendando..." : "Confirmar Reagendamento"}
+            {reschedule.isPending ? "Reagendando..." : "Confirmar"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { 
   Plus, 
   UserCircle, 
@@ -28,22 +30,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useProfessionals, useCreateProfessional, useUpdateProfessional, useDeleteProfessional } from "@/hooks/api/useProfessionals";
-import { PageHeader, SearchInput, EmptyState, LoadingSpinner, ConfirmDialog } from "@/components/common";
+import { PageHeader, SearchInput, EmptyState, LoadingSpinner, ConfirmDialog, ErrorState } from "@/components/common";
 import { ManageServicesDialog } from "@/components/professionals/ManageServicesDialog";
 import { ManageAvailabilityDialog } from "@/components/professionals/ManageAvailabilityDialog";
 import { ManageScheduleBlocksDialog } from "@/components/professionals/ManageScheduleBlocksDialog";
+import { getInitials } from "@/lib/formatters";
+import { professionalSchema, type ProfessionalFormData } from "@/lib/schemas";
 import type { Professional } from "@/types/api";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export default function ProfessionalsPage(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,7 +48,11 @@ export default function ProfessionalsPage(): JSX.Element {
   const [manageServicesProfId, setManageServicesProfId] = useState<string | null>(null);
   const [manageAvailabilityProfId, setManageAvailabilityProfId] = useState<string | null>(null);
   const [manageBlocksProfId, setManageBlocksProfId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "" });
+
+  const form = useForm<ProfessionalFormData>({
+    resolver: zodResolver(professionalSchema),
+    defaultValues: { name: "" },
+  });
 
   const { data: professionals, isLoading, isError, error } = useProfessionals();
   const createProfessional = useCreateProfessional();
@@ -64,20 +63,20 @@ export default function ProfessionalsPage(): JSX.Element {
 
   const openCreateDialog = (): void => {
     setEditingProfessional(null);
-    setFormData({ name: "" });
+    form.reset({ name: "" });
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (professional: Professional): void => {
     setEditingProfessional(professional);
-    setFormData({ name: professional.name });
+    form.reset({ name: professional.name });
     setIsDialogOpen(true);
   };
 
   const closeDialog = (): void => {
     setIsDialogOpen(false);
     setEditingProfessional(null);
-    setFormData({ name: "" });
+    form.reset({ name: "" });
   };
 
   const filteredProfessionals = useMemo(() => {
@@ -87,15 +86,15 @@ export default function ProfessionalsPage(): JSX.Element {
     );
   }, [professionals, searchQuery]);
 
-  const handleSubmit = (): void => {
+  const handleSubmit = (data: ProfessionalFormData): void => {
     if (isEditing && editingProfessional) {
       updateProfessional.mutate(
-        { id: editingProfessional.id, data: { name: formData.name } },
+        { id: editingProfessional.id, data: { name: data.name } },
         { onSuccess: closeDialog }
       );
     } else {
       createProfessional.mutate(
-        { name: formData.name },
+        { name: data.name },
         { onSuccess: closeDialog }
       );
     }
@@ -115,13 +114,11 @@ export default function ProfessionalsPage(): JSX.Element {
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <UserCircle className="h-12 w-12 text-destructive" />
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Erro ao carregar profissionais</h2>
-          <p className="text-muted-foreground mt-1">{error?.message}</p>
-        </div>
-      </div>
+      <ErrorState
+        title="Erro ao carregar profissionais"
+        description={error?.message || "Ocorreu um erro inesperado."}
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
@@ -146,30 +143,36 @@ export default function ProfessionalsPage(): JSX.Element {
               {isEditing ? "Atualize os dados do profissional." : "Adicione um novo profissional ao estabelecimento."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                placeholder="Nome do profissional"
-                value={formData.name}
-                onChange={(e) => setFormData({ name: e.target.value })}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome do profissional" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!formData.name || createProfessional.isPending || updateProfessional.isPending}
-            >
-              {(createProfessional.isPending || updateProfessional.isPending) 
-                ? (isEditing ? "Salvando..." : "Criando...") 
-                : (isEditing ? "Salvar" : "Criar")}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={createProfessional.isPending || updateProfessional.isPending}
+                >
+                  {(createProfessional.isPending || updateProfessional.isPending) 
+                    ? (isEditing ? "Salvando..." : "Criando...") 
+                    : (isEditing ? "Salvar" : "Criar")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -186,7 +189,7 @@ export default function ProfessionalsPage(): JSX.Element {
           description={searchQuery ? "Tente uma busca diferente" : "Adicione profissionais para começar"}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProfessionals.map((professional) => (
             <Card key={professional.id} className="transition-all hover:shadow-md">
               <CardHeader className="pb-2">
@@ -209,7 +212,7 @@ export default function ProfessionalsPage(): JSX.Element {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Ações">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -242,9 +245,9 @@ export default function ProfessionalsPage(): JSX.Element {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  ID: {professional.id.slice(0, 8)}...
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Clique nas opções para gerenciar serviços, disponibilidade e bloqueios.
+                </p>
               </CardContent>
             </Card>
           ))}

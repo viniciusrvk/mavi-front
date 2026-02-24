@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -12,29 +12,14 @@ import {
   DollarSign
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useTenant } from "@/contexts/TenantContext";
 import { useBookings } from "@/hooks/api/useBookings";
 import { useCustomers } from "@/hooks/api/useCustomers";
 import { useServices } from "@/hooks/api/useServices";
 import { useProfessionals } from "@/hooks/api/useProfessionals";
-import { LoadingSpinner } from "@/components/common";
-import type { BookingStatus } from "@/types/api";
-
-function getStatusBadge(status: BookingStatus): JSX.Element {
-  const variants: Record<BookingStatus, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
-    REQUESTED: { variant: "outline", label: "Pendente" },
-    CONFIRMED: { variant: "default", label: "Confirmado" },
-    IN_PROGRESS: { variant: "secondary", label: "Em Andamento" },
-    COMPLETED: { variant: "default", label: "Concluído" },
-    CANCELLED: { variant: "destructive", label: "Cancelado" },
-    REJECTED: { variant: "destructive", label: "Rejeitado" },
-    NO_SHOW: { variant: "destructive", label: "Não Compareceu" },
-  };
-  
-  const config = variants[status] || { variant: "outline" as const, label: status };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
-}
+import { PageHeader, LoadingSpinner, ErrorState } from "@/components/common";
+import { BookingStatusBadge } from "@/lib/booking-utils";
+import { formatCurrency } from "@/lib/formatters";
 
 export default function Dashboard(): JSX.Element {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
@@ -43,7 +28,8 @@ export default function Dashboard(): JSX.Element {
   const { data: services } = useServices();
   const { data: professionals } = useProfessionals();
 
-  const today = new Date();
+  const todayRef = useRef(new Date());
+  const today = todayRef.current;
 
   const todayBookings = useMemo(() => {
     if (!bookings) return [];
@@ -70,7 +56,7 @@ export default function Dashboard(): JSX.Element {
       },
       {
         title: "Faturamento do Dia",
-        value: `R$ ${todayRevenue.toFixed(2)}`,
+        value: formatCurrency(todayRevenue),
         description: `${todayBookings.filter(b => b.status === "COMPLETED").length} atendimentos concluídos`,
         icon: DollarSign,
         color: "text-green-500"
@@ -119,39 +105,32 @@ export default function Dashboard(): JSX.Element {
 
   if (!currentTenant) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="h-12 w-12 text-muted-foreground" />
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">Nenhum Estabelecimento Selecionado</h2>
-          <p className="text-muted-foreground mt-1">
-            Selecione ou crie um estabelecimento para começar
-          </p>
-        </div>
-      </div>
+      <ErrorState
+        title="Nenhum Estabelecimento Selecionado"
+        description="Selecione ou crie um estabelecimento para começar."
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Bem-vindo ao {currentTenant.name}! Aqui está o resumo do seu dia.
-        </p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description={`Bem-vindo ao ${currentTenant.name}! Aqui está o resumo do seu dia.`}
+      />
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
+        {stats.map((stat, index) => (
+          <Card key={stat.title} className={index === 0 ? "col-span-2 lg:col-span-1" : ""}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <stat.icon className={`h-4 w-4 ${stat.color} shrink-0`} />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+            <CardContent className="p-4 pt-0">
+              <div className="text-xl sm:text-2xl font-bold">{stat.value}</div>
               <p className="text-xs text-muted-foreground">
                 {stat.description}
               </p>
@@ -182,25 +161,27 @@ export default function Dashboard(): JSX.Element {
               <div className="space-y-3">
                 {todayBookings.slice(0, 5).map((booking) => {
                   const customer = customers?.find(c => c.id === booking.customerId);
-                  const service = services?.find(s => s.id === booking.serviceId);
+                  const serviceNames = booking.services.map(s => s.serviceName).join(", ");
                   const professional = professionals?.find(p => p.id === booking.professionalId);
                   return (
                     <div 
                       key={booking.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors gap-2"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="text-sm font-semibold text-primary min-w-[50px]">
+                        <div className="text-sm font-semibold text-primary min-w-[50px] shrink-0">
                           {format(parseISO(booking.startTime), "HH:mm")}
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{customer?.name || "Cliente"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {service?.name || "Serviço"} • {professional?.name || "Profissional"}
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{customer?.name || "Cliente"}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {serviceNames || "Serviço"} • {professional?.name || "Profissional"}
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(booking.status)}
+                      <div className="shrink-0">
+                        <BookingStatusBadge status={booking.status} />
+                      </div>
                     </div>
                   );
                 })}

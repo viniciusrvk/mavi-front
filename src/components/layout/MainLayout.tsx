@@ -35,8 +35,10 @@ export function MainLayout() {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset className="flex-1">
-          <header className="flex h-14 items-center gap-4 border-b border-border bg-card px-4 lg:px-6">
-            <SidebarTrigger />
+          <header className="flex h-14 items-center gap-2 border-b border-border bg-card px-3 lg:px-6">
+            <SidebarTrigger className="h-10 w-10" aria-label="Menu" />
+            <div className="h-6 w-px bg-border md:hidden" />
+            <span className="text-sm font-medium text-muted-foreground truncate md:hidden">MAVI</span>
           </header>
           <main className="flex-1 p-4 lg:p-6">
             <Outlet />
