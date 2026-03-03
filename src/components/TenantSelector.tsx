@@ -9,11 +9,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 export function TenantSelector() {
-  const { currentTenant, setCurrentTenant, tenants, isLoading, error, refreshTenants } = useTenant();
+  const { currentTenant, setCurrentTenant, tenants, isLoading, error, refreshTenants, isTenantFixed } = useTenant();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -52,6 +54,27 @@ export function TenantSelector() {
         >
           <RefreshCw className={`h-3 w-3 ${isRetrying ? "animate-spin" : ""}`} />
         </Button>
+      </div>
+    );
+  }
+
+  // Quando o usuário tem apenas 1 tenant, exibe estaticamente sem permitir troca
+  if (isTenantFixed) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-input bg-card px-3 py-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
+          <Building2 className="h-4 w-4 text-primary" />
+        </div>
+        <div className="text-left">
+          <p className="text-sm font-medium leading-none">
+            {currentTenant?.name || "—"}
+          </p>
+          {currentTenant && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {currentTenant.slug}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -104,10 +127,12 @@ export function TenantSelector() {
           ))
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate("/tenants")}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Estabelecimento
-        </DropdownMenuItem>
+        {user?.role === 'ADMIN' && (
+          <DropdownMenuItem onClick={() => navigate("/tenants")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Estabelecimento
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

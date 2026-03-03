@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Building2, Clock, Edit, Trash2, MoreHorizontal } from "lucide-react";
+import { Plus, Building2, Clock, Edit, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useTenant } from "@/contexts/TenantContext";
-import { useTenants, useCreateTenant, useUpdateTenant, useDeleteTenant } from "@/hooks/api/useTenants";
-import { PageHeader, SearchInput, EmptyState, ErrorState, LoadingSpinner, ConfirmDialog } from "@/components/common";
+import { useTenants, useCreateTenant, useUpdateTenant } from "@/hooks/api/useTenants";
+import { PageHeader, SearchInput, EmptyState, ErrorState, LoadingSpinner } from "@/components/common";
 import { tenantCreateSchema, type TenantCreateFormData } from "@/lib/schemas";
 import type { Tenant } from "@/types/api";
 
@@ -32,7 +32,6 @@ export default function TenantsPage(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [deleteTenantId, setDeleteTenantId] = useState<string | null>(null);
 
   const defaultValues: TenantCreateFormData = { name: "", slug: "", openTime: "08:00", closeTime: "18:00", taxId: "" };
 
@@ -44,7 +43,6 @@ export default function TenantsPage(): JSX.Element {
   const { data: tenants, isLoading, isError, error } = useTenants();
   const createTenant = useCreateTenant();
   const updateTenant = useUpdateTenant();
-  const deleteTenant = useDeleteTenant();
 
   const isEditing = !!editingTenant;
 
@@ -111,14 +109,6 @@ export default function TenantsPage(): JSX.Element {
 
   const handleSelectTenant = (tenant: Tenant): void => {
     setCurrentTenant(tenant);
-  };
-
-  const handleDelete = (): void => {
-    if (deleteTenantId) {
-      deleteTenant.mutate(deleteTenantId, {
-        onSuccess: () => setDeleteTenantId(null),
-      });
-    }
   };
 
   if (isLoading) {
@@ -303,16 +293,6 @@ export default function TenantsPage(): JSX.Element {
                         <Edit className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTenantId(tenant.id);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Excluir
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -338,16 +318,6 @@ export default function TenantsPage(): JSX.Element {
         </div>
       )}
 
-      <ConfirmDialog
-        open={!!deleteTenantId}
-        onOpenChange={(open) => !open && setDeleteTenantId(null)}
-        title="Excluir estabelecimento"
-        description="Tem certeza que deseja excluir este estabelecimento? Esta ação não pode ser desfeita e todos os dados associados serão perdidos."
-        confirmText="Excluir"
-        onConfirm={handleDelete}
-        variant="destructive"
-        isLoading={deleteTenant.isPending}
-      />
     </div>
   );
 }

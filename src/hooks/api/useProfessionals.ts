@@ -19,6 +19,14 @@ export function useProfessionals(): ReturnType<typeof useQuery<Professional[], E
   });
 }
 
+export function useActiveProfessionals(): ReturnType<typeof useQuery<Professional[], Error>> {
+  return useQuery({
+    queryKey: [...professionalKeys.lists(), 'active'],
+    queryFn: () => api.getActiveProfessionals(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useProfessional(id: string): ReturnType<typeof useQuery<Professional, Error>> {
   return useQuery({
     queryKey: professionalKeys.detail(id),

@@ -117,3 +117,11 @@ export const scheduleBlockSchema = z.object({
 });
 
 export type ScheduleBlockFormData = z.infer<typeof scheduleBlockSchema>;
+
+// ─── Login ──────────────────────────────────────────────────────────
+export const loginSchema = z.object({
+  email: z.string().email('E-mail inválido'),
+  password: z.string().min(1, 'Senha obrigatória'),
+});
+
+export type LoginForm = z.infer<typeof loginSchema>;

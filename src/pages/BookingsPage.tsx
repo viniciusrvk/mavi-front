@@ -45,9 +45,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useBookings, useCreateBooking, useUpdateBookingStatus, useCancelBooking, useRejectBooking } from "@/hooks/api/useBookings";
-import { useProfessionals } from "@/hooks/api/useProfessionals";
+import { useProfessionals, useActiveProfessionals } from "@/hooks/api/useProfessionals";
 import { useCustomers } from "@/hooks/api/useCustomers";
-import { useServices } from "@/hooks/api/useServices";
+import { useActiveServices } from "@/hooks/api/useServices";
 import { useAvailableSlots } from "@/hooks/api/useAvailableSlots";
 import { useProfessionalServices, useServiceProfessionals } from "@/hooks/api/useProfessionalServices";
 import { RescheduleDialog } from "@/components/bookings/RescheduleDialog";
@@ -55,6 +55,8 @@ import { PageHeader, LoadingSpinner, EmptyState, ErrorState } from "@/components
 import { getStatusConfig } from "@/lib/booking-utils";
 import { formatCurrency } from "@/lib/formatters";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { ROLE_LABELS } from "@/lib/permissions";
 import type { BookingStatus, Booking } from "@/types/api";
 
 const statuses = [
@@ -83,14 +85,24 @@ export default function BookingsPage(): JSX.Element {
     time: "",
   });
 
+  const { user } = useAuth();
+  const isEmployee = user?.role === 'EMPLOYEE';
+  const canCreate = user?.role === 'ADMIN' || user?.role === 'OWNER';
+
   const { data: bookings, isLoading, isError, error } = useBookings();
   const { data: professionals } = useProfessionals();
+  const { data: activeProfessionalsForCreate } = useActiveProfessionals();
   const { data: customers } = useCustomers();
-  const { data: services } = useServices();
+  const { data: services } = useActiveServices();
   const createBooking = useCreateBooking();
   const updateBookingStatus = useUpdateBookingStatus();
   const cancelBooking = useCancelBooking();
   const rejectBooking = useRejectBooking();
+
+  const employeeProfessional = useMemo(() => {
+    if (!isEmployee || !user?.professionalId || !professionals) return null;
+    return professionals.find(p => p.id === user.professionalId) ?? null;
+  }, [isEmployee, user?.professionalId, professionals]);
 
   // Dynamic filtering: service -> professionals, professional -> services
   const { data: serviceProfessionals } = useServiceProfessionals(
@@ -102,17 +114,17 @@ export default function BookingsPage(): JSX.Element {
 
   // Filtered options for create dialog
   const filteredProfessionals = useMemo(() => {
-    const activeProfessionals = professionals?.filter(p => p.active) || [];
-    if (newBooking.serviceIds.length === 0 || !serviceProfessionals) return activeProfessionals;
+    const base = activeProfessionalsForCreate || [];
+    if (newBooking.serviceIds.length === 0 || !serviceProfessionals) return base;
     const validIds = new Set(serviceProfessionals.map(sp => sp.professionalId));
-    return activeProfessionals.filter(p => validIds.has(p.id));
-  }, [professionals, newBooking.serviceIds, serviceProfessionals]);
+    return base.filter(p => validIds.has(p.id));
+  }, [activeProfessionalsForCreate, newBooking.serviceIds, serviceProfessionals]);
 
   const filteredServices = useMemo(() => {
-    const activeServices = services?.filter(s => s.active) || [];
-    if (!newBooking.professionalId || !professionalServicesList) return activeServices;
+    const base = services || [];
+    if (!newBooking.professionalId || !professionalServicesList) return base;
     const validIds = new Set(professionalServicesList.map(ps => ps.serviceId));
-    return activeServices.filter(s => validIds.has(s.id));
+    return base.filter(s => validIds.has(s.id));
   }, [services, newBooking.professionalId, professionalServicesList]);
 
   // Effective price/duration for all selected services
@@ -150,11 +162,13 @@ export default function BookingsPage(): JSX.Element {
     return bookings.filter((booking) => {
       const bookingDate = parseISO(booking.startTime);
       const dateMatch = isSameDay(bookingDate, selectedDate);
-      const professionalMatch = selectedProfessional === "all" || booking.professionalId === selectedProfessional;
+      const professionalMatch = isEmployee
+        ? booking.professionalId === user?.professionalId
+        : selectedProfessional === "all" || booking.professionalId === selectedProfessional;
       const statusMatch = selectedStatus === "all" || booking.status === selectedStatus;
       return dateMatch && professionalMatch && statusMatch;
     });
-  }, [bookings, selectedDate, selectedProfessional, selectedStatus]);
+  }, [bookings, selectedDate, selectedProfessional, selectedStatus, isEmployee, user?.professionalId]);
 
   const handleStatusChange = (bookingId: string, newStatus: BookingStatus): void => {
     updateBookingStatus.mutate(
@@ -203,12 +217,34 @@ export default function BookingsPage(): JSX.Element {
     );
   }
 
+  // EMPLOYEE sem professionalId vinculado
+  if (isEmployee && !user?.professionalId) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Meus Atendimentos"
+          description="Seus agendamentos como profissional"
+        />
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <User className="h-10 w-10 text-muted-foreground" />
+            <p className="text-lg font-medium">Conta não vinculada</p>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Sua conta não está vinculada a um profissional. Contate o administrador.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Agendamentos"
-        description="Gerencie os agendamentos do estabelecimento"
+        title={isEmployee ? "Meus Atendimentos" : "Agendamentos"}
+        description={isEmployee ? "Seus agendamentos como profissional" : "Gerencie os agendamentos do estabelecimento"}
         action={
+          canCreate ? (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -404,8 +440,23 @@ export default function BookingsPage(): JSX.Element {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          ) : null
         }
       />
+
+      {/* Badges de role e, para EMPLOYEE, informação do profissional */}
+      <div className="flex flex-wrap items-center gap-2">
+        {user?.role && (
+          <Badge variant="outline" className="text-xs">
+            {ROLE_LABELS[user.role]}
+          </Badge>
+        )}
+        {isEmployee && employeeProfessional && (
+          <Badge variant="secondary" className="text-xs">
+            Exibindo agendamentos de: {employeeProfessional.name}
+          </Badge>
+        )}
+      </div>
 
       {/* Filters */}
       <Card>
@@ -416,17 +467,19 @@ export default function BookingsPage(): JSX.Element {
               <span className="text-sm font-medium">Filtros:</span>
             </div>
             <div className="grid grid-cols-2 gap-3 md:flex md:flex-row">
-              <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Profissional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {professionals?.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {!isEmployee && (
+                <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {professionals?.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger className="w-full md:w-[180px]">
                   <SelectValue placeholder="Status" />

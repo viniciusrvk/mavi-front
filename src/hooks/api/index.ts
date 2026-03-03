@@ -8,3 +8,4 @@ export * from "./useProfessionalServices";
 export * from "./useAvailabilities";
 export * from "./useScheduleBlocks";
 export * from "./useSlotRules";
+export * from "./useAuth";

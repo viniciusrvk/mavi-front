@@ -6,6 +6,7 @@ import type {
   Customer,
   CreateCustomerRequest,
   UpdateCustomerRequest,
+  UpsertCustomerRequest,
   Professional,
   CreateProfessionalRequest,
   UpdateProfessionalRequest,
@@ -26,13 +27,18 @@ import type {
   CreateSlotRuleRequest,
   AvailabilitySlot,
   GetAvailabilitySlotsParams,
+  AuthLoginRequest,
+  AuthLoginResponse,
+  AuthUserInfo,
 } from '@/types/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''; // Vazio = usa caminho relativo (proxy do Vite em dev, Nginx em prod)
-const API_KEY = import.meta.env.VITE_API_KEY || 'mavi-dev-key-123';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''; // Vazio = usa caminho relativo (proxy do Vite em dev, Nginx em prod)
+const API_KEY = import.meta.env.VITE_API_KEY as string;
+const TOKEN_KEY = 'mavi_token';
 
 class ApiClient {
   private tenantId: string | null = null;
+  onUnauthorized: (() => void) | null = null;
 
   setTenantId(tenantId: string | null) {
     this.tenantId = tenantId;
@@ -42,14 +48,28 @@ class ApiClient {
     return this.tenantId;
   }
 
+  setToken(token: string | null) {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }
+
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    const token = this.getToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'X-API-Key': API_KEY,
       ...(this.tenantId && { 'X-Tenant-Id': this.tenantId }),
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     };
 
@@ -57,6 +77,11 @@ class ApiClient {
       ...options,
       headers,
     });
+
+    if (response.status === 401) {
+      this.onUnauthorized?.();
+      throw new Error('Não autorizado');
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -68,6 +93,18 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  // Auth
+  async login(data: AuthLoginRequest): Promise<AuthLoginResponse> {
+    return this.request<AuthLoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async me(): Promise<AuthUserInfo> {
+    return this.request<AuthUserInfo>('/auth/me');
   }
 
   // Tenants
@@ -90,12 +127,6 @@ class ApiClient {
     return this.request<Tenant>(`/api/v1/tenants/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
-  }
-
-  async deleteTenant(id: string): Promise<void> {
-    return this.request<void>(`/api/v1/tenants/${id}`, {
-      method: 'DELETE',
     });
   }
 
@@ -127,6 +158,13 @@ class ApiClient {
     return this.request<Customer[]>('/api/v1/customers');
   }
 
+  async upsertCustomer(data: UpsertCustomerRequest): Promise<Customer> {
+    return this.request<Customer>('/api/v1/customers/upsert', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getCustomer(id: string): Promise<Customer> {
     return this.request<Customer>(`/api/v1/customers/${id}`);
   }
@@ -154,6 +192,10 @@ class ApiClient {
   // Professionals
   async getProfessionals(): Promise<Professional[]> {
     return this.request<Professional[]>('/api/v1/professionals');
+  }
+
+  async getActiveProfessionals(): Promise<Professional[]> {
+    return this.request<Professional[]>('/api/v1/professionals/active');
   }
 
   async getProfessional(id: string): Promise<Professional> {
@@ -253,6 +295,10 @@ class ApiClient {
     return this.request<Service[]>('/api/v1/services');
   }
 
+  async getActiveServices(): Promise<Service[]> {
+    return this.request<Service[]>('/api/v1/services/active');
+  }
+
   async getService(id: string): Promise<Service> {
     return this.request<Service>(`/api/v1/services/${id}`);
   }
@@ -284,16 +330,12 @@ class ApiClient {
 
   // Bookings
   async getBookings(params?: {
-    professionalId?: string;
     customerId?: string;
     date?: string;
-    status?: string;
   }): Promise<Booking[]> {
     const searchParams = new URLSearchParams();
-    if (params?.professionalId) searchParams.set('professionalId', params.professionalId);
     if (params?.customerId) searchParams.set('customerId', params.customerId);
     if (params?.date) searchParams.set('date', params.date);
-    if (params?.status) searchParams.set('status', params.status);
     
     const query = searchParams.toString();
     return this.request<Booking[]>(`/api/v1/bookings${query ? `?${query}` : ''}`);

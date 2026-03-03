@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Customer, CreateCustomerRequest, UpdateCustomerRequest } from "@/types/api";
+import type { Customer, CreateCustomerRequest, UpdateCustomerRequest, UpsertCustomerRequest } from "@/types/api";
 import { useToast } from "@/hooks/use-toast";
 
 export const customerKeys = {

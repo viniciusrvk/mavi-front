@@ -74,25 +74,4 @@ export function useUpdateTenant(): ReturnType<typeof useMutation<Tenant, Error, 
   });
 }
 
-export function useDeleteTenant(): ReturnType<typeof useMutation<void, Error, string>> {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
-  return useMutation({
-    mutationFn: (id: string) => api.deleteTenant(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: tenantKeys.lists() });
-      toast({
-        title: "Estabelecimento excluído!",
-        description: "O estabelecimento foi removido com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro ao excluir estabelecimento",
-        description: error.message,
-      });
-    },
-  });
-}

@@ -3,8 +3,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copiar arquivos de dependências primeiro (cache de layers)
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Copiar código-fonte e buildar
 COPY . .

@@ -55,6 +55,12 @@ export interface UpdateCustomerRequest {
   birthDate?: string;
 }
 
+export interface UpsertCustomerRequest {
+  name: string;
+  phone: string;
+  email?: string;
+}
+
 export interface Professional {
   id: string;
   name: string;
@@ -260,4 +266,27 @@ export interface PageResponse<T> {
   totalPages: number;
   size: number;
   number: number;
+}
+
+// Auth types
+export type UserRole = 'ADMIN' | 'OWNER' | 'EMPLOYEE' | 'CLIENT';
+
+export interface AuthUserInfo {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  tenantIds: string[];
+  professionalId: string | null;
+  customerId: string | null;
+}
+
+export interface AuthLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthLoginResponse {
+  token: string;
+  user: AuthUserInfo;
 }

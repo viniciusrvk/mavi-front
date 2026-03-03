@@ -19,6 +19,14 @@ export function useServices(): ReturnType<typeof useQuery<Service[], Error>> {
   });
 }
 
+export function useActiveServices(): ReturnType<typeof useQuery<Service[], Error>> {
+  return useQuery({
+    queryKey: [...serviceKeys.lists(), 'active'],
+    queryFn: () => api.getActiveServices(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useService(id: string): ReturnType<typeof useQuery<Service, Error>> {
   return useQuery({
     queryKey: serviceKeys.detail(id),
