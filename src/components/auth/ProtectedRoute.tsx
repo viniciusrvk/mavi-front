@@ -22,6 +22,11 @@ export function ProtectedRoute({ requiredRoles }: ProtectedRouteProps): JSX.Elem
     return <Navigate to="/login" replace />;
   }
 
+  // Redireciona para troca de senha obrigatória no primeiro login
+  if (user?.mustChangePassword && window.location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
+
   if (requiredRoles && user && !requiredRoles.includes(user.role)) {
     return <Navigate to="/forbidden" replace />;
   }

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ErrorBoundary, LoadingSpinner } from "@/components/common";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -23,6 +24,9 @@ const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const BookingsPage = lazy(() => import("./pages/BookingsPage"));
 const MyBookingsPage = lazy(() => import("./pages/MyBookingsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ChangePasswordPage = lazy(() => import("./pages/ChangePasswordPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Configure QueryClient with retry and error handling
@@ -57,11 +61,12 @@ function HomeRedirect(): JSX.Element {
 
 function App(): JSX.Element {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ErrorBoundary>
-        <TooltipProvider>
-          <AuthProvider>
-            <TenantProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ErrorBoundary>
+          <TooltipProvider>
+            <AuthProvider>
+              <TenantProvider>
               <Toaster />
               <BrowserRouter>
                 <Suspense fallback={<PageLoader />}>
@@ -69,6 +74,11 @@ function App(): JSX.Element {
                     {/* Rotas públicas */}
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/forbidden" element={<ForbiddenPage />} />
+
+                    {/* Rota de troca de senha obrigatória (autenticado, sem layout) */}
+                    <Route element={<ProtectedRoute />}>
+                      <Route path="/change-password" element={<ChangePasswordPage />} />
+                    </Route>
 
                     {/* Rotas protegidas: ADMIN e OWNER */}
                     <Route element={<ProtectedRoute requiredRoles={["ADMIN", "OWNER"]} />}>
@@ -78,6 +88,7 @@ function App(): JSX.Element {
                         <Route path="/professionals" element={<ProfessionalsPage />} />
                         <Route path="/services" element={<ServicesPage />} />
                         <Route path="/customers" element={<CustomersPage />} />
+                        <Route path="/users" element={<UsersPage />} />
                         <Route path="/reports" element={<NotFound />} />
                       </Route>
                     </Route>
@@ -104,6 +115,13 @@ function App(): JSX.Element {
                       </Route>
                     </Route>
 
+                    {/* Rotas protegidas: todos os roles autenticados */}
+                    <Route element={<ProtectedRoute />}>
+                      <Route element={<MainLayout />}>
+                        <Route path="/profile" element={<ProfilePage />} />
+                      </Route>
+                    </Route>
+
                     {/* Rota raiz: redireciona para home do role */}
                     <Route element={<ProtectedRoute />}>
                       <Route path="/" element={<HomeRedirect />} />
@@ -118,6 +136,7 @@ function App(): JSX.Element {
         </TooltipProvider>
       </ErrorBoundary>
     </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

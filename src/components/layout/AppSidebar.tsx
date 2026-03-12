@@ -8,6 +8,8 @@ import {
   UserCircle,
   LogOut,
   BarChart3,
+  UsersRound,
+  User,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -48,6 +50,7 @@ const MENU_ITEMS: MenuItem[] = [
   { title: "Profissionais",    url: "/professionals", icon: UserCircle,      roles: ["ADMIN", "OWNER"],                       group: "main" },
   { title: "Serviços",         url: "/services",      icon: Scissors,        roles: ["ADMIN", "OWNER"],                       group: "main" },
   { title: "Relatórios",       url: "/reports",       icon: BarChart3,       roles: ["ADMIN", "OWNER"],                       group: "main" },
+  { title: "Usuários",         url: "/users",         icon: UsersRound,      roles: ["ADMIN", "OWNER"],                       group: "main" },
   { title: "Estabelecimentos", url: "/tenants",       icon: Building2,       roles: ["ADMIN"],                                group: "admin" },
   { title: "Configurações",    url: "/settings",      icon: Settings,        roles: ["ADMIN"],                                group: "admin" },
 ];
@@ -152,15 +155,26 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
         {collapsed ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={auth.logout}
-            title="Sair"
-            className="w-full text-sidebar-foreground/70 hover:text-sidebar-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.location.href = "/profile"}
+              title="Perfil"
+              className="w-full text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            >
+              <User className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={auth.logout}
+              title="Sair"
+              className="w-full text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -178,15 +192,28 @@ export function AppSidebar() {
                 </Badge>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={auth.logout}
-              className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              >
+                <NavLink to="/profile">
+                  <User className="h-4 w-4" />
+                  Perfil
+                </NavLink>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={auth.logout}
+                className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </Button>
+            </div>
           </div>
         )}
       </SidebarFooter>

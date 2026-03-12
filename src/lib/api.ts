@@ -30,6 +30,10 @@ import type {
   AuthLoginRequest,
   AuthLoginResponse,
   AuthUserInfo,
+  AppUserResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  ChangePasswordRequest,
 } from '@/types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''; // Vazio = usa caminho relativo (proxy do Vite em dev, Nginx em prod)
@@ -409,6 +413,43 @@ class ApiClient {
       }
     }
     return this.request<AvailabilitySlot[]>(`/api/v1/schedule/availability?${searchParams}`);
+  }
+
+  // Users
+  async getUsers(): Promise<AppUserResponse[]> {
+    return this.request<AppUserResponse[]>('/api/v1/users');
+  }
+
+  async getUser(id: string): Promise<AppUserResponse> {
+    return this.request<AppUserResponse>(`/api/v1/users/${id}`);
+  }
+
+  async createUser(data: CreateUserRequest): Promise<AppUserResponse> {
+    return this.request<AppUserResponse>('/api/v1/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateUser(id: string, data: UpdateUserRequest): Promise<AppUserResponse> {
+    return this.request<AppUserResponse>(`/api/v1/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    return this.request<void>(`/api/v1/users/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Change password
+  async changePassword(data: ChangePasswordRequest): Promise<void> {
+    return this.request<void>('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   }
 }
 

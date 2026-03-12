@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Outlet } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { LoadingSpinner, ErrorState } from "@/components/common";
@@ -39,6 +40,9 @@ export function MainLayout() {
             <SidebarTrigger className="h-10 w-10" aria-label="Menu" />
             <div className="h-6 w-px bg-border md:hidden" />
             <span className="text-sm font-medium text-muted-foreground truncate md:hidden">MAVI</span>
+            <div className="ml-auto">
+              <ThemeToggle />
+            </div>
           </header>
           <main className="flex-1 p-4 lg:p-6">
             <Outlet />

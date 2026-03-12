@@ -3,9 +3,9 @@ import type { UserRole } from '@/types/api';
 // Rotas acessíveis por cada role
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
   ADMIN: ['*'], // acesso total
-  OWNER: ['/dashboard', '/tenants', '/professionals', '/services', '/customers', '/bookings', '/reports'],
-  EMPLOYEE: ['/bookings', '/schedule'],
-  CLIENT: ['/my-bookings'],
+  OWNER: ['/dashboard', '/tenants', '/professionals', '/services', '/customers', '/bookings', '/reports', '/users', '/profile'],
+  EMPLOYEE: ['/bookings', '/schedule', '/profile'],
+  CLIENT: ['/my-bookings', '/profile'],
 };
 
 // Verifica se um role tem permissão para uma rota

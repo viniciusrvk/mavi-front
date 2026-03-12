@@ -34,6 +34,7 @@ export interface Customer {
   cpf: string;
   phone: string;
   name: string;
+  email?: string;
   nickname?: string;
   birthDate?: string;
   createdAt: string;
@@ -279,14 +280,44 @@ export interface AuthUserInfo {
   tenantIds: string[];
   professionalId: string | null;
   customerId: string | null;
+  mustChangePassword: boolean;
 }
 
 export interface AuthLoginRequest {
-  email: string;
+  login: string;
   password: string;
 }
 
 export interface AuthLoginResponse {
   token: string;
   user: AuthUserInfo;
+}
+
+// User management types
+export interface AppUserResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface UpdateUserRequest {
+  name?: string;
+  email?: string;
+  role?: string;
+  active?: boolean;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword?: string;
+  newPassword: string;
 }

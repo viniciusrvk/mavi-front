@@ -120,8 +120,48 @@ export type ScheduleBlockFormData = z.infer<typeof scheduleBlockSchema>;
 
 // ─── Login ──────────────────────────────────────────────────────────
 export const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
+  email: z.string().min(1, 'Login é obrigatório'),
   password: z.string().min(1, 'Senha obrigatória'),
 });
 
 export type LoginForm = z.infer<typeof loginSchema>;
+
+// ─── Usuário ────────────────────────────────────────────────────────
+export const userCreateSchema = z.object({
+  name: requiredString("Nome").max(255, "Nome muito longo"),
+  email: z.string().email("E-mail inválido").max(255, "E-mail muito longo"),
+  role: requiredString("Perfil"),
+});
+
+export type UserCreateFormData = z.infer<typeof userCreateSchema>;
+
+export const userEditSchema = z.object({
+  name: requiredString("Nome").max(255, "Nome muito longo"),
+  email: z.string().email("E-mail inválido").max(255, "E-mail muito longo"),
+  role: requiredString("Perfil"),
+});
+
+export type UserEditFormData = z.infer<typeof userEditSchema>;
+
+// ─── Alterar Senha ──────────────────────────────────────────────────
+export const changePasswordSchema = z.object({
+  currentPassword: optionalString,
+  newPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+  confirmPassword: z.string().min(1, "Confirmação é obrigatória"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
+
+// ─── Primeira Troca de Senha ────────────────────────────────────────
+export const firstPasswordSchema = z.object({
+  newPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+  confirmPassword: z.string().min(1, "Confirmação é obrigatória"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+export type FirstPasswordFormData = z.infer<typeof firstPasswordSchema>;

@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { LoginForm, loginSchema } from "@/lib/schemas";
+import { useChangePassword } from "@/hooks/api/useUsers";
+import { firstPasswordSchema, type FirstPasswordFormData } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -25,36 +25,39 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HOME_BY_ROLE } from "@/lib/permissions";
 
-export default function LoginPage() {
+export default function ChangePasswordPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { user, login, logout } = useAuth();
+  const changePassword = useChangePassword();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+  const form = useForm<FirstPasswordFormData>({
+    resolver: zodResolver(firstPasswordSchema),
+    defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
   const { isSubmitting } = form.formState;
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/", { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
-
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: FirstPasswordFormData) => {
     try {
       setError(null);
-      await login(data.email, data.password);
-      // O redirecionamento é feito pelo AuthContext/App ou pelo useEffect acima
+      await changePassword.mutateAsync({ newPassword: data.newPassword });
+      // Re-login para atualizar o token com mustChangePassword=false
+      if (user) {
+        try {
+          await login(user.email, data.newPassword);
+        } catch {
+          // Se falhar, faz logout
+          logout();
+          return;
+        }
+      }
+      navigate(user ? HOME_BY_ROLE[user.role] : "/", { replace: true });
     } catch (err) {
-      setError("Credenciais incorretas.");
+      setError("Erro ao alterar a senha. Tente novamente.");
     }
   };
 
@@ -62,11 +65,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-4xl font-extrabold tracking-tight text-primary">
-            MAVI
-          </CardTitle>
-          <CardDescription className="text-lg">
-            Sistema de Gestão de Salões
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <KeyRound className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Alterar Senha</CardTitle>
+          <CardDescription>
+            É necessário alterar sua senha no primeiro acesso.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -77,40 +81,19 @@ export default function LoginPage() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>E-mail, telefone ou CPF</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="seu@email.com"
-                        type="text"
-                        autoFocus
-                        autoComplete="username"
-                        disabled={isSubmitting}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
-                name="password"
+                name="newPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Senha</FormLabel>
+                    <FormLabel>Nova Senha</FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
-                          placeholder="••••••••"
+                          placeholder="Mínimo 6 caracteres"
                           type={showPassword ? "text" : "password"}
-                          autoComplete="current-password"
+                          autoFocus
                           disabled={isSubmitting}
                           {...field}
                         />
@@ -121,7 +104,6 @@ export default function LoginPage() {
                         size="icon"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
-                        disabled={isSubmitting}
                         tabIndex={-1}
                       >
                         {showPassword ? (
@@ -129,31 +111,43 @@ export default function LoginPage() {
                         ) : (
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
-                        <span className="sr-only">
-                          {showPassword ? "Ocultar senha" : "Exibir senha"}
-                        </span>
                       </Button>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button 
-                type="submit" 
-                className="w-full" 
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar Senha</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Repita a nova senha"
+                        type={showPassword ? "text" : "password"}
+                        disabled={isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full"
                 disabled={isSubmitting}
               >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isSubmitting ? "Entrando..." : "Entrar"}
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSubmitting ? "Alterando..." : "Alterar Senha"}
               </Button>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Mavi Tech. Todos os direitos reservados.</p>
-        </CardFooter>
       </Card>
     </div>
   );
